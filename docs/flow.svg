@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="316" viewBox="0 0 820 316" role="img" aria-label="签发与激活流程">
+  <title>签发与激活流程</title>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4A9EFF"/>
+    </marker>
+    <style>
+      .bg   { fill:#1C1C1B }
+      .card { fill:#111110; stroke:#2E2E2C; stroke-width:2 }
+      .box  { fill:#242423; stroke:#3A3A38; stroke-width:2 }
+      .tag  { fill:#2E2E2C }
+      .t1   { fill:#E8E6E1; font-size:17px; font-weight:600 }
+      .t1s  { fill:#E8E6E1; font-size:15px; font-weight:600 }
+      .t2   { fill:#A8A6A0; font-size:12.5px }
+      .t3   { fill:#6E6C67; font-size:11.5px }
+      .num  { fill:#4A9EFF; font-size:13px; font-weight:700 }
+      .wire { stroke:#4A9EFF; stroke-width:2.2; fill:none;
+              marker-end:url(#ah) }
+      .wire-dim { stroke:#4A9EFF; stroke-width:2.2; fill:none;
+                  marker-end:url(#ah); opacity:.85 }
+    </style>
+  </defs>
+
+  <rect class="bg" width="820" height="316" rx="18"/>
+  <rect x="1" y="1" width="818" height="314" rx="17" fill="none" stroke="#3A3A38" stroke-width="2"/>
+
+  <!-- ============ 你的软件 ============ -->
+  <g>
+    <rect class="box" x="42" y="52" width="248" height="112" rx="14"/>
+    <text class="t1" x="66" y="84">你的软件</text>
+    <text class="t2" x="66" y="108">license.py · check() / activate()</text>
+    <rect class="tag" x="66" y="122" width="200" height="26" rx="7"/>
+    <text class="t3" x="76" y="139">激活窗显示：89b6a98b26c5628f</text>
+  </g>
+
+  <!-- ============ 签发工具 ============ -->
+  <g>
+    <rect class="box" x="530" y="52" width="248" height="112" rx="14"/>
+    <text class="t1" x="554" y="84">签发工具</text>
+    <text class="t2" x="554" y="108">issuer/ · 你自己保留</text>
+    <rect class="tag" x="554" y="122" width="200" height="26" rx="7"/>
+    <text class="t3" x="564" y="139">make_card(24, 指纹)</text>
+  </g>
+
+  <!-- ============ 去程：指纹 ============ -->
+  <path class="wire" d="M290 88 H522"/>
+  <text class="num" x="352" y="78">① 机器指纹 · 16 位</text>
+
+  <!-- ============ 回程：卡密 ============ -->
+  <path class="wire" d="M522 132 H298"/>
+  <text class="num" x="330" y="154">② 卡密 · 28 字符</text>
+
+  <!-- ============ 本地校验 ============ -->
+  <path class="wire-dim" d="M166 164 V206"/>
+  <text class="num" x="180" y="190">③ 本地验签 + 比对指纹</text>
+
+  <!-- ============ license.json ============ -->
+  <g>
+    <rect class="card" x="42" y="206" width="412" height="76" rx="14"/>
+    <text class="t1s" x="66" y="238">license.json</text>
+    <text class="t2" x="66" y="262">激活成功，剩余 23小时 59分钟（至 2026-10-08 22:56）</text>
+  </g>
+
+  <!-- ============ 离线说明 ============ -->
+  <g>
+    <rect class="card" x="530" y="206" width="248" height="76" rx="14"/>
+    <text class="t2" x="554" y="234">全程不联网</text>
+    <text class="t3" x="554" y="256">不需要服务器 / 数据库</text>
+    <text class="t3" x="554" y="273">校验只是一次 HMAC 运算</text>
+  </g>
+</svg>

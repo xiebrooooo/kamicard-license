@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="176" viewBox="0 0 820 176" role="img" aria-label="卡密系统 Kamicard">
+  <title>卡密系统 · Kamicard</title>
+
+  <!-- 自带深色底，浅色主题和深色主题下都能看 -->
+  <rect width="820" height="176" rx="18" fill="#1C1C1B"/>
+  <rect x="1" y="1" width="818" height="174" rx="17" fill="none" stroke="#3A3A38" stroke-width="2"/>
+
+  <!-- 钥匙图标 -->
+  <g transform="translate(40 28)">
+    <rect width="120" height="120" rx="26" fill="#111110" stroke="#2E2E2C" stroke-width="2"/>
+    <g stroke="#4A9EFF" stroke-linecap="round" fill="none">
+      <circle cx="50" cy="60" r="15" stroke-width="8"/>
+      <path d="M64 60 H92" stroke-width="8"/>
+      <path d="M78 60 V72" stroke-width="8"/>
+      <path d="M90 60 V70" stroke-width="8"/>
+    </g>
+  </g>
+
+  <!-- 主标题 -->
+  <text x="190" y="82"
+        font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif"
+        font-size="42" font-weight="700" fill="#E8E6E1" letter-spacing="2">卡密系统</text>
+
+  <!-- 英文名 -->
+  <text x="192" y="110"
+        font-family="'Segoe UI',Helvetica,Arial,sans-serif"
+        font-size="13" fill="#6E6C67" letter-spacing="5">KAMICARD</text>
+
+  <!-- 一句话定位 -->
+  <text x="192" y="138"
+        font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif"
+        font-size="14" fill="#A8A6A0">HMAC 签名 · 机器绑定 · 纯标准库零依赖</text>
+
+  <!-- 右侧状态标记 -->
+  <g transform="translate(652 62)">
+    <rect width="120" height="30" rx="15" fill="#2A1D1D" stroke="#5A3030" stroke-width="1.5"/>
+    <circle cx="18" cy="15" r="4.5" fill="#F87171"/>
+    <text x="32" y="20"
+          font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif"
+          font-size="12" fill="#FFB4B4">密钥已公开</text>
+  </g>
+  <text x="654" y="116"
+        font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif"
+        font-size="11" fill="#6E6C67">仅作技术演示</text>
+</svg>
