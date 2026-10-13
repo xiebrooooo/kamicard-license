@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1C1C1B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>卡密签发</title>
+<style>
+  :root{
+    --bg:#1C1C1B; --card:#262625; --card2:#2E2E2C; --line:#3A3A38;
+    --fg:#E8E6E1; --fg2:#A8A6A0; --fg3:#6E6C67;
+    --accent:#4A9EFF; --ok:#4ADE80; --warn:#FBBF24; --err:#F87171;
+    --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    padding:calc(12px + var(--sat)) 12px calc(20px + var(--sab));
+    max-width:600px;margin:0 auto;
+  }
+  h1{font-size:19px;font-weight:600;margin:0 0 2px}
+  .sub{font-size:12px;color:var(--fg3);margin-bottom:14px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;
+         padding:14px;margin-bottom:12px}
+  .panel h2{font-size:12px;color:var(--fg2);font-weight:600;letter-spacing:.5px;
+            margin:0 0 10px}
+  label.f{display:block;margin-bottom:14px}
+  label.f>span{display:block;font-size:12px;color:var(--fg3);margin-bottom:6px}
+  input{
+    width:100%;background:#1A1A19;border:1px solid var(--line);border-radius:10px;
+    color:var(--fg);padding:12px;font:16px Consolas,monospace;
+  }
+  input:focus{outline:none;border-color:var(--accent)}
+  input::placeholder{color:var(--fg3);font-size:13px}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px}
+  .quick button{
+    background:var(--card2);border:1px solid var(--line);color:var(--fg);
+    border-radius:10px;padding:10px 4px;font-size:13px;cursor:pointer;
+  }
+  .quick button.on{background:var(--accent);border-color:var(--accent);
+                   color:#04121F;font-weight:600}
+  button.primary{
+    width:100%;background:var(--accent);border:none;color:#04121F;
+    border-radius:12px;padding:15px;font-size:16px;font-weight:600;
+  }
+  button.primary:active{background:#63ACFF}
+  button.primary:disabled{opacity:.4}
+  .btns{display:flex;gap:8px}
+  .btns button{
+    flex:1;background:var(--card2);border:1px solid var(--line);color:var(--fg);
+    border-radius:10px;padding:12px;font-size:14px;
+  }
+  .result{margin-top:14px;padding:12px;border-radius:12px;border:1px solid var(--line);
+          background:#1A1A19;display:none}
+  .result.show{display:block}
+  .result.ok{border-color:#2A4A2A}
+  .result.err{border-color:#5A3030;color:#FFB4B4}
+  .code{
+    font:19px Consolas,monospace;letter-spacing:1px;word-break:break-all;
+    margin:8px 0 10px;user-select:all;-webkit-user-select:all;line-height:1.5;
+  }
+  .meta{font-size:12.5px;color:var(--fg2);line-height:1.7}
+  .hint{font-size:12px;color:var(--fg3);line-height:1.8;margin-top:10px}
+  .hint b{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td{padding:7px 4px;border-bottom:1px solid #2F2F2D;color:var(--fg2);
+     font-family:Consolas,monospace;vertical-align:top}
+  td.n{color:var(--fg3);font-family:inherit;font-size:11px;white-space:nowrap}
+  .empty{color:var(--fg3);font-size:13px;text-align:center;padding:12px}
+  .toast{
+    position:fixed;left:50%;bottom:calc(30px + var(--sab));transform:translateX(-50%);
+    background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;
+    opacity:0;transition:opacity .2s;pointer-events:none;z-index:99;
+  }
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>卡密签发</h1>
+<div class="sub">粘贴客户发来的机器指纹，选时长，生成卡密</div>
+
+<div class="panel">
+  <h2>签发</h2>
+  <label class="f"><span>客户的机器指纹（16 位，他打开软件激活窗复制给你的）</span>
+    <input type="text" id="machine" placeholder="例如 89b6a98b26c5628f"
+           maxlength="16" autocapitalize="off" autocorrect="off" spellcheck="false">
+  </label>
+
+  <label class="f"><span>有效时长</span>
+    <div class="quick" id="quick">
+      <button data-h="1">1 小时</button>
+      <button data-h="24">24 小时</button>
+      <button data-h="72">3 天</button>
+      <button data-h="168">7 天</button>
+      <button data-h="720" class="on">30 天</button>
+      <button data-h="8760">一年</button>
+      <button data-h="0">自定义</button>
+      <button data-h="c" id="clear-hist">清记录</button>
+    </div>
+    <div id="custom-wrap" style="display:none;align-items:center;gap:8px">
+      <input type="number" id="hours" value="720" min="1" max="87600"
+             inputmode="numeric" style="flex:1">
+      <span style="font-size:13px;color:var(--fg3)">小时</span>
+    </div>
+  </label>
+
+  <label class="f"><span>备注（可选，只存在你手机上）</span>
+    <input type="text" id="note" placeholder="如：微信昵称 xxx"
+           style="font-family:inherit" autocapitalize="off">
+  </label>
+
+  <button class="primary" id="b-gen">生成卡密</button>
+
+  <div class="result" id="result">
+    <div id="result-text"></div>
+    <div class="code" id="code"></div>
+    <div class="meta" id="meta"></div>
+    <div class="btns" style="margin-top:10px">
+      <button id="b-copy">复制卡密</button>
+      <button id="b-share">分享</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>查卡</h2>
+  <input type="text" id="check-card" placeholder="粘贴一张卡密"
+         autocapitalize="off" autocorrect="off" spellcheck="false">
+  <div class="btns" style="margin-top:8px">
+    <button id="b-check">查询</button>
+  </div>
+  <div class="meta" id="check-result" style="margin-top:10px"></div>
+</div>
+
+<div class="panel">
+  <h2>签发记录（存在本机浏览器里）</h2>
+  <div id="hist"></div>
+</div>
+
+<div class="hint">
+  <b>安全提醒</b>：这个页面里含卡密密钥，只放在你自己的手机上，
+  <b>绝对不要发给任何人</b>。可以「添加到主屏幕」当 App 用。
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   纯 JS 的 SHA-256 / HMAC-SHA256 / Base32
+   刻意不用 Web Crypto API —— 本地打开 HTML 时，部分浏览器
+   （尤其手机上的）拿不到 crypto.subtle，会直接报错。
+   ============================================================ */
+const K256 = new Uint32Array([
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+]);
+
+function sha256(bytesStr) {
+  const msg = typeof bytesStr === "string"
+            ? new TextEncoder().encode(bytesStr) : bytesStr;
+  const len = msg.length;
+  const bitLen = len * 8;
+  // padding: 0x80 + zeros + 64bit length
+  const withPad = new Uint8Array((((len + 9) >> 6) + 1) << 6);
+  withPad.set(msg);
+  withPad[len] = 0x80;
+  const dv = new DataView(withPad.buffer);
+  dv.setUint32(withPad.length - 4, bitLen >>> 0);
+  dv.setUint32(withPad.length - 8, Math.floor(bitLen / 0x100000000));
+
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,
+      h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const w = new Uint32Array(64);
+  const rotr = (x,n) => (x>>>n) | (x<<(32-n));
+
+  for (let off = 0; off < withPad.length; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i-15],7) ^ rotr(w[i-15],18) ^ (w[i-15]>>>3);
+      const s1 = rotr(w[i-2],17) ^ rotr(w[i-2],19) ^ (w[i-2]>>>10);
+      w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+    }
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K256[i] + w[i]) >>> 0;
+      const S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
+      const mj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + mj) >>> 0;
+      h=g; g=f; f=e; e=(d+t1)>>>0;
+      d=c; c=b; b=a; a=(t1+t2)>>>0;
+    }
+    h0=(h0+a)>>>0; h1=(h1+b)>>>0; h2=(h2+c)>>>0; h3=(h3+d)>>>0;
+    h4=(h4+e)>>>0; h5=(h5+f)>>>0; h6=(h6+g)>>>0; h7=(h7+h)>>>0;
+  }
+  const out = new Uint8Array(32);
+  const odv = new DataView(out.buffer);
+  [h0,h1,h2,h3,h4,h5,h6,h7].forEach((v,i) => odv.setUint32(i*4, v));
+  return out;
+}
+
+function hmacSha256(key, msg) {
+  const block = 64;
+  let k = key;
+  if (k.length > block) k = sha256(k);
+  const kp = new Uint8Array(block);
+  kp.set(k);
+
+  const oKey = new Uint8Array(block), iKey = new Uint8Array(block);
+  for (let i = 0; i < block; i++) {
+    iKey[i] = kp[i] ^ 0x36;
+    oKey[i] = kp[i] ^ 0x5c;
+  }
+  const inner = sha256(concat(iKey, msg));
+  return sha256(concat(oKey, inner));
+}
+
+function concat(a, b) {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a); out.set(b, a.length);
+  return out;
+}
+
+const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function base32Encode(bytes) {
+  let bits = 0, value = 0, out = "";
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += B32[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += B32[(value << (5 - bits)) & 31];
+  return out;                      // 无 '=' 填充，和 Python 的 rstrip("=") 一致
+}
+
+function base32Decode(text) {
+  const t = text.replace(/-/g, "").replace(/ /g, "").toUpperCase();
+  let bits = 0, value = 0;
+  const out = [];
+  for (const ch of t) {
+    const idx = B32.indexOf(ch);
+    if (idx < 0) return null;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xFF);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+}
+
+/* ============================================================
+   卡密算法 —— 必须和 Python 版 license.py 字节级一致
+   ============================================================ */
+const KEY = new Uint8Array([
+  0x6b,0x1f, 0xa3,0x4d, 0x0e,0x72,
+  0xc9,0x18, 0x54,0xbe, 0x37,0xf1, 0x8a,0x25
+]);
+
+function machineFp(machine) {
+  const h = sha256(machine.trim().toLowerCase());
+  return h.slice(0, 4);
+}
+
+function makeCard(hours, machine, nonce, nowSec) {
+  const now = nowSec || Math.floor(Date.now() / 1000);
+  const exp = now + Math.floor(hours) * 3600;
+  const fp = machineFp(machine);
+  const nc = nonce || crypto.getRandomValues(new Uint8Array(2));
+
+  // struct.pack(">I4s2sH", exp, fp, nonce, 0x0001) —— 大端
+  const body = new Uint8Array(12);
+  const bdv = new DataView(body.buffer);
+  bdv.setUint32(0, exp);
+  body.set(fp, 4);
+  body.set(nc, 8);
+  bdv.setUint16(10, 0x0001);
+
+  const sig = hmacSha256(KEY, body).slice(0, 4);
+
+  let sum = 0;
+  for (const b of body) sum += b;
+  for (const b of sig) sum += b;
+  const chk = sum & 0xFF;
+
+  const raw = new Uint8Array(17);
+  raw.set(body); raw.set(sig, 12); raw[16] = chk;
+
+  const b32 = base32Encode(raw);
+  return b32.replace(/(.{4})/g, "$1-").replace(/-$/, "");
+}
+
+function parseCard(card) {
+  const raw = base32Decode(card || "");
+  if (!raw || raw.length !== 17) return {status:"corrupt"};
+  const body = raw.slice(0, 12), sig = raw.slice(12, 16), chk = raw[16];
+  let sum = 0;
+  for (const b of body) sum += b;
+  for (const b of sig) sum += b;
+  if ((sum & 0xFF) !== chk) return {status:"corrupt"};
+
+  const want = hmacSha256(KEY, body).slice(0, 4);
+  for (let i = 0; i < 4; i++) if (want[i] !== sig[i]) return {status:"corrupt"};
+
+  const dv = new DataView(body.buffer);
+  return {
+    status: "ok",
+    expiresAt: dv.getUint32(0),
+    machineFp: Array.from(body.slice(4, 8))
+      .map(b => b.toString(16).padStart(2, "0")).join(""),
+  };
+}
+
+function remainText(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const p = [];
+  if (d) p.push(d + "天");
+  if (h) p.push(h + "小时");
+  if (!d && m) p.push(m + "分钟");
+  return p.length ? p.join(" ") : "不足 1 分钟";
+}
+
+/* ============================================================
+   界面逻辑
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const HIST_KEY = "kamicard_cards_v1";
+const HIST_KEY_LEGACY = "pikafish_cards_v1";   // 旧名，仅用于一次性迁移
+let pickedHours = 720;
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+function showResult(kind, text, code, meta) {
+  const box = $("result");
+  box.classList.add("show");
+  box.classList.remove("ok", "err");
+  box.classList.add(kind);
+  $("result-text").innerHTML = kind === "ok"
+    ? '<span style="color:var(--ok)">生成成功</span>'
+    : '<span style="color:var(--err)">' + text + "</span>";
+  $("code").textContent = code || "";
+  $("meta").textContent = meta || "";
+}
+
+// 快捷时长
+$("quick").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (btn.id === "clear-hist") {
+    if (confirm("清空本机的签发记录？")) {
+      localStorage.removeItem(HIST_KEY);
+      localStorage.removeItem(HIST_KEY_LEGACY);   // 迁移残留也一起清掉
+      renderHist();
+      toast("已清空");
+    }
+    return;
+  }
+  document.querySelectorAll("#quick button").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  const h = +btn.dataset.h;
+  if (h > 0) {
+    pickedHours = h;
+    $("custom-wrap").style.display = "none";
+    $("custom-wrap").style.alignItems = "";
+  } else {
+    pickedHours = 0;
+    $("custom-wrap").style.display = "flex";
+    $("hours").focus();
+  }
+});
+
+// 生成
+$("b-gen").onclick = () => {
+  const machine = $("machine").value.trim().toLowerCase();
+  if (!machine) { toast("请先填客户的机器指纹"); $("machine").focus(); return; }
+  if (machine.length !== 16 || /[^0-9a-f]/.test(machine)) {
+    showResult("err", "指纹格式不对：应该是 16 位十六进制（0-9 和 a-f）", "", "");
+    return;
+  }
+  const hours = pickedHours > 0 ? pickedHours : (parseInt($("hours").value) || 0);
+  if (!(hours >= 1 && hours <= 87600)) {
+    showResult("err", "时长要在 1 ~ 87600 小时之间", "", "");
+    return;
+  }
+
+  const card = makeCard(hours, machine);
+  const exp = Math.floor(Date.now() / 1000) + hours * 3600;
+  const until = new Date(exp * 1000);
+  const untilStr = until.getFullYear() + "-"
+    + String(until.getMonth() + 1).padStart(2, "0") + "-"
+    + String(until.getDate()).padStart(2, "0") + " "
+    + String(until.getHours()).padStart(2, "0") + ":"
+    + String(until.getMinutes()).padStart(2, "0");
+
+  showResult("ok", "", card,
+    "时长 " + remainText(hours * 3600) + "，至 " + untilStr
+    + "，仅限指纹 " + machine + " 的电脑");
+
+  const hist = loadHist();
+  hist.unshift({
+    t: Date.now(), card, hours,
+    note: $("note").value.trim(), machine
+  });
+  saveHist(hist.slice(0, 200));
+  renderHist();
+};
+
+// 复制 / 分享
+async function copyText(t) {
+  try {
+    await navigator.clipboard.writeText(t);
+    return true;
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (_) {}
+    ta.remove();
+    return ok;
+  }
+}
+
+$("b-copy").onclick = async () => {
+  const t = $("code").textContent;
+  if (!t) return;
+  toast(await copyText(t) ? "已复制卡密" : "复制失败，长按手动选");
+};
+
+$("b-share").onclick = async () => {
+  const t = $("code").textContent;
+  if (!t) return;
+  const text = "你的卡密：" + t + "\n" + $("meta").textContent;
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch (e) {}
+  } else {
+    toast(await copyText(text) ? "已复制，去粘给客户" : "复制失败");
+  }
+};
+
+// 查卡
+$("b-check").onclick = () => {
+  const info = parseCard($("check-card").value);
+  if (info.status !== "ok") {
+    $("check-result").innerHTML =
+      '<span style="color:var(--err)">卡密无效（格式不对或被改过）</span>';
+    return;
+  }
+  const rem = info.expiresAt - Math.floor(Date.now() / 1000);
+  const d = new Date(info.expiresAt * 1000);
+  const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")
+    + "-" + String(d.getDate()).padStart(2, "0") + " "
+    + String(d.getHours()).padStart(2, "0") + ":"
+    + String(d.getMinutes()).padStart(2, "0");
+  $("check-result").innerHTML = rem > 0
+    ? '<span style="color:var(--ok)">有效</span> · 到期 ' + ds
+      + ' · 剩余 ' + remainText(rem) + ' · 指纹 ' + info.machineFp
+    : '<span style="color:var(--err)">已过期</span> · ' + ds;
+};
+
+// 记录
+function loadHist() {
+  try {
+    const cur = localStorage.getItem(HIST_KEY);
+    if (cur) return JSON.parse(cur);
+    // 一次性迁移：本项目原叫 pikafish_cards_v1，改名后把老历史搬过来，
+    // 免得用惯了的人一升级发现签发记录全空了。
+    const old = localStorage.getItem(HIST_KEY_LEGACY);
+    if (old) {
+      localStorage.setItem(HIST_KEY, old);
+      localStorage.removeItem(HIST_KEY_LEGACY);
+      return JSON.parse(old);
+    }
+    return [];
+  } catch (e) { return []; }
+}
+function saveHist(h) {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) {}
+}
+function renderHist() {
+  const hist = loadHist();
+  if (!hist.length) {
+    $("hist").innerHTML = '<div class="empty">还没有签发记录</div>';
+    return;
+  }
+  $("hist").innerHTML = "<table>" + hist.slice(0, 60).map(h => {
+    const d = new Date(h.t);
+    const ds = (d.getMonth() + 1) + "/" + d.getDate() + " "
+      + String(d.getHours()).padStart(2, "0") + ":"
+      + String(d.getMinutes()).padStart(2, "0");
+    const note = (h.note || "").replace(/</g, "&lt;");
+    return '<tr><td class="n">' + ds + "</td><td>" + h.card
+      + '<br><span class="n">' + (h.hours || h.days * 24 || "?") + " 小时 "
+      + note + "</span></td></tr>";
+  }).join("") + "</table>";
+}
+
+renderHist();
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>激活窗口</title>
+<!--
+  可直接复用的「激活弹窗」—— 自包含单文件，不依赖任何前端库。
+
+  它只做三件事，全部通过 window.pywebview.api 调你的后端：
+    get_lic()              → {status, machine, remaining_text, expires_at}
+    activate(card)         → {ok, msg, lic}
+    （可选）on_activated() → 激活成功后通知主界面刷新
+
+  后端最少要暴露：
+    class Api:
+        def get_lic(self): ...
+        def activate(self, card): ...
+  参照 examples/integrate_example.py。
+
+  嵌进你自己的界面时：把 <style> 和 <div id="lic"> 那段整体拷过去，
+  再拷 activate.js 里那几行绑定，就完事了。
+-->
+<style>
+  :root{
+    --bg:#1C1C1B; --card:#262625; --card2:#2E2E2C; --line:#3A3A38;
+    --fg:#E8E6E1; --fg2:#A8A6A0; --fg3:#6E6C67;
+    --accent:#4A9EFF; --ok:#4ADE80; --warn:#FBBF24; --err:#F87171;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:13px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    padding:16px;
+  }
+  /* 演示页直接铺开；嵌到别处时用 .modal-mask 那套做遮罩弹窗 */
+  .demo-bar{
+    display:flex; align-items:center; gap:10px; margin-bottom:14px;
+    padding:10px 12px; background:var(--card); border:1px solid var(--line);
+    border-radius:10px; font-size:12px; color:var(--fg2);
+  }
+  .demo-bar button{
+    background:var(--accent); border:1px solid var(--accent); color:#04121F;
+    border-radius:7px; padding:6px 16px; font-size:12px; font-weight:600;
+    cursor:pointer; margin-left:auto;
+  }
+
+  /* ===================== 可复用的弹窗本体 ===================== */
+  .modal-mask{
+    position:fixed; inset:0; background:rgba(0,0,0,.55);
+    display:flex; align-items:center; justify-content:center; z-index:100;
+  }
+  .modal{
+    width:min(500px,88vw); max-height:86vh; overflow-y:auto;
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:18px 20px; box-shadow:0 12px 48px rgba(0,0,0,.5);
+  }
+  .modal h3{font-size:15px; margin-bottom:12px}
+  .modal .gfoot{margin-top:14px; display:flex; align-items:center; gap:10px}
+  .modal .gfoot button{
+    background:var(--card2); border:1px solid var(--line); color:var(--fg);
+    border-radius:7px; padding:7px 18px; font-size:13px; cursor:pointer;
+  }
+  .modal .gfoot button.primary{
+    background:var(--accent); border-color:var(--accent);
+    color:#04121F; font-weight:600; margin-left:auto;
+  }
+  .modal .gfoot button:disabled{opacity:.4; cursor:not-allowed}
+
+  .fp-box{
+    background:#1A1A19; border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; margin-bottom:12px;
+  }
+  .fp-box .lbl{font-size:11px; color:var(--fg3); margin-bottom:6px}
+  .fp-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .fp{
+    font:15px Consolas,monospace; letter-spacing:1px; color:var(--fg);
+    user-select:all; word-break:break-all;
+  }
+  .mini{
+    background:var(--card2); border:1px solid var(--line); color:var(--fg);
+    border-radius:6px; padding:4px 12px; font-size:12px; cursor:pointer;
+  }
+  .mini:hover{background:#383836}
+  .hint{font-size:11px; color:var(--fg3); margin-top:6px}
+  .ok-text{color:var(--ok)} .warn-text{color:var(--warn)}
+  .err-text{color:var(--err)}
+
+  #lic-card{
+    width:100%; background:#1A1A19; border:1px solid var(--line);
+    border-radius:6px; color:var(--fg); padding:10px;
+    font:13px Consolas,monospace; letter-spacing:1px;
+  }
+  #lic-card:focus{outline:none; border-color:var(--accent)}
+  #lic-state{font-size:12px; margin-bottom:12px; line-height:1.8}
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <span>演示页 · 点右边按钮打开激活窗</span>
+  <button id="b-activate">🔑 激活</button>
+</div>
+
+<!-- ===================== 激活弹窗 ===================== -->
+<div id="lic" class="modal-mask">
+  <div class="modal">
+    <h3>激活</h3>
+
+    <div id="lic-state" class="warn-text">正在检查 ...</div>
+
+    <div class="fp-box">
+      <div class="lbl">第 1 步：把下面的<b>本机指纹</b>发给卖家</div>
+      <div class="fp-row">
+        <b id="lic-machine" class="fp">—</b>
+        <button class="mini" id="lic-copy-fp">复制指纹</button>
+        <span id="lic-copy-tip" class="hint ok-text"></span>
+      </div>
+      <div class="hint">卖家会按这个指纹生成一张<b>只有这台电脑能用</b>的卡密。</div>
+    </div>
+
+    <div class="lbl" style="font-size:11px;color:var(--fg3);margin-bottom:4px">
+      第 2 步：拿到卡密后粘贴到下面
+    </div>
+    <input type="text" id="lic-card" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+           autocomplete="off" spellcheck="false">
+
+    <div class="gfoot">
+      <button id="lic-cancel">关闭</button>
+      <button class="primary" id="lic-ok">激活</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================ 可复用逻辑 ============================ */
+const $ = (id) => document.getElementById(id);
+
+async function call(fn, ...args){
+  try { return await window.pywebview.api[fn](...args); }
+  catch(e){ return null; }
+}
+
+// 状态 → 给用户看的说明。刻意不提"授权"两个字，避免一眼被定位。
+const LIC_TIP = {
+  missing:       '这台电脑还没有激活，输入卡密后即可开始使用。',
+  expired:       '已到期，请向卖家购买新卡后重新激活。',
+  wrong_machine: '当前文件与本机不匹配（可能拷贝了别人的文件），请联系卖家。',
+  corrupt:       '数据损坏，请删除 license.json 后重新激活。',
+  bind_pending:  '正在绑定本机，请稍候 ...',
+};
+
+function showLic(){ $('lic').style.display = 'flex'; }
+function hideLic(){ $('lic').style.display = 'none'; }
+
+async function openLic(){
+  const info = await call('get_lic');
+  if (!info){ $('lic-state').textContent = '无法读取本机状态'; showLic(); return; }
+
+  $('lic-machine').textContent = info.machine || '—';
+  const tip = LIC_TIP[info.status];
+  $('lic-state').className = info.status === 'ok' ? 'ok-text' : 'warn-text';
+  $('lic-state').innerHTML = info.status === 'ok'
+    ? '已激活，剩余 ' + (info.remaining_text || '—')
+    : (tip || '需要激活');
+  $('lic-card').value = '';
+  showLic();
+  setTimeout(() => $('lic-card').focus(), 50);
+}
+
+$('b-activate').onclick = openLic;
+$('lic-cancel').onclick = hideLic;
+
+// 一键复制指纹 —— 用户要发给卖家
+$('lic-copy-fp').onclick = async () => {
+  const t = $('lic-machine').textContent;
+  if (!t || t === '—') return;
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  $('lic-copy-tip').textContent = '已复制，发给卖家即可';
+  setTimeout(() => { $('lic-copy-tip').textContent = ''; }, 2500);
+};
+
+$('lic-ok').onclick = async () => {
+  const card = $('lic-card').value.trim().toUpperCase();
+  if (!card) return;
+  $('lic-ok').disabled = true;
+  const r = await call('activate', card);
+  $('lic-ok').disabled = false;
+
+  if (r && r.ok){
+    // 先显示结果再关闭 —— 续期时 msg 里会写明叠加后共剩多久，用户能看见
+    $('lic-state').className = 'ok-text';
+    $('lic-state').innerHTML = r.msg || '激活成功';
+    $('lic-card').value = '';
+    setTimeout(() => {
+      hideLic();
+      if (typeof on_activated === 'function') on_activated(r);
+    }, 1500);
+  } else {
+    $('lic-state').className = 'err-text';
+    $('lic-state').textContent = (r && r.msg) || '激活失败，请检查卡密';
+  }
+};
+
+$('lic-card').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('lic-ok').click();
+});
+
+// 演示页：打开就把弹窗弹出来
+openLic();
+</script>
+</body>
+</html>

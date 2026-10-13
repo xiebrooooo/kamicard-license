@@ -1,0 +1,36 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+dist_issuer/
+build_issuer/
+*.spec
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- 运行时产生的数据（不该进版本库）----
+license.json
+cards/
+logs/
+profile/
+bench_cache.json
+
+# ---- 测试/调试产物 ----
+_runtime/
+_chk/
+*.log
+*.tmp
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
